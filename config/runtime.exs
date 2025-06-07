@@ -63,7 +63,39 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    check_origin: ["//#{host}"]
+
+  # ## Configure the release migrator
+  #   
+  # This is used to run migrations on deployment.
+  config :radio_backend, RadioBackend.Release,
+    ecto_repos: [RadioBackend.Repo]
+
+  # ## Configuring the Release
+  #
+  # This section is used by `mix release` to create a release.
+  #
+  # You should change the `name` and `version` fields.
+  #
+  # `applications` is a list of applications that will be running.
+  # `steps` is a list of tasks that will be executed when the release is built.
+  #
+  # You can also configure server-side evaluation of configs by setting
+  # `eval: :remote`. This will evaluate the config file on the server, after
+  # the release is copied there.
+  config :radio_backend, releases: [
+    {:"0.1.0",
+     [
+       applications: [radio_backend: :permanent],
+       steps: [:assemble, ©_assets/1]
+     ]}
+  ]
+
+  # This function is used by the release configuration above.
+  defp copy_assets(release) do
+    File.cp_r("priv/static", Path.join([release.path, "priv"]))
+  end
 
   # ## SSL Support
   #

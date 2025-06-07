@@ -6,7 +6,8 @@ import Config
 # which you should run after static files are built and
 # before starting your production server.
 config :radio_backend, RadioBackendWeb.Endpoint,
-  cache_static_manifest: "priv/static/cache_manifest.json"
+  cache_static_manifest: "priv/static/cache_manifest.json",
+  server: true
 
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Finch, finch_name: RadioBackend.Finch
@@ -16,6 +17,11 @@ config :swoosh, local: false
 
 # Do not print debug messages in production
 config :logger, level: :info
+
+# Database configuration
+config :radio_backend, RadioBackend.Repo,
+  pool_size: 10,
+  ssl: true
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

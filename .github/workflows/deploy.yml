@@ -44,8 +44,8 @@ jobs:
       - name: Compile assets
         run: |
           npm install --prefix ./assets
-          npm run deploy --prefix ./assets
-          mix phx.digest
+          mix esbuild.install --if-missing
+          mix assets.deploy
 
       - name: Build release
         env:

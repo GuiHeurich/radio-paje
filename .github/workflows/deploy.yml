@@ -22,8 +22,8 @@ jobs:
       - name: Cache Elixir dependencies
 	uses: actions/cache@v4
 	with:
-	  path: deps
-      	  key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+	  path: deps      	  
+   	  key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
       	  restore-keys: |
             ${{ runner.os }}-mix-
 

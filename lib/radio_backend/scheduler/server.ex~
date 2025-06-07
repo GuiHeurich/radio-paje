@@ -1,0 +1,90 @@
+# lib/radio_backend/scheduler/server.ex
+
+defmodule RadioBackend.Scheduler.Server do
+  use GenServer
+
+  # 1. Add aliases for Repo and our new Track schema
+  alias RadioBackend.Repo
+  alias RadioBackend.Scheduler.Track
+
+  defstruct [
+    :current_track,
+    :playlist,
+    :starts_at
+  ]
+
+  # =================================================================
+  # Public API (No changes here)
+  # =================================================================
+
+  def start_link(_opts) do
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+  end
+
+  def now_playing do
+    GenServer.call(__MODULE__, :now_playing)
+  end
+
+  # =================================================================
+  # GenServer Callbacks (The internal logic)
+  # =================================================================
+
+  @impl true
+  def init(:ok) do
+    # 2. Replace the hard-coded list with a database query.
+    # We'll also randomize the playlist order each time the server starts!
+    playlist = Repo.all(Track) |> Enum.shuffle()
+
+    IO.puts("Loaded #{length(playlist)} tracks from the database.")
+
+    initial_state = %__MODULE__{playlist: playlist}
+    new_state = play_next_track(initial_state)
+
+    {:ok, new_state}
+  end
+
+  @impl true
+  def handle_call(:now_playing, _from, state) do
+    reply = %{
+      current_track: state.current_track,
+      starts_at: state.starts_at
+    }
+    {:reply, reply, state}
+  end
+
+  @impl true
+  def handle_info(:next_song, state) do
+    IO.puts("Track finished, playing next song...")
+    new_state = play_next_track(state)
+    {:noreply, new_state}
+  end
+
+  # =================================================================
+  # Private Helper Functions
+  # =================================================================
+
+  defp play_next_track(state) do
+    case state.playlist do
+      [] ->
+        # Playlist is empty. For a real radio, we'd reload it.
+        # Let's reload and shuffle again!
+        IO.puts("Playlist finished. Reloading and shuffling...")
+        reloaded_playlist = Repo.all(Track) |> Enum.shuffle()
+        play_next_track(%__MODULE__{state | playlist: reloaded_playlist})
+
+      [next_track | remaining_playlist] ->
+        # 3. Notice we now access fields with . (e.g., next_track.title)
+        #    because `next_track` is a `Track` struct, not a map.
+        IO.puts("Now playing: #{next_track.title} by #{next_track.artist}")
+
+        Process.send_after(self(), :next_song, next_track.duration)
+
+        %__MODULE__{
+          current_track: next_track,
+          playlist: remaining_playlist,
+          starts_at: System.os_time(:millisecond)
+        }
+    end
+  end
+end
+

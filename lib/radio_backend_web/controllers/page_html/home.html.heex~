@@ -1,0 +1,9 @@
+<.flash_group flash={@flash} />
+<section class="phx-hero">
+  <h1>Pajé Radio</h1>
+  <h2 id="now-playing-title">Connecting...</h2>
+  <p id="now-playing-artist"></p>
+
+  <audio id="audio-player" controls autoplay></audio>
+  <p><small>If music doesn't play automatically, please click the play button.</small></p>
+</section>

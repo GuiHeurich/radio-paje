@@ -44,6 +44,7 @@ jobs:
       - name: Compile assets
         run: |
           npm install --prefix ./assets
+          mix deps.get
           mix esbuild.install --if-missing
           mix assets.deploy
 

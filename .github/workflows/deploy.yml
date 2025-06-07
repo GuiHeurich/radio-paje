@@ -13,29 +13,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This step is likely where the tab/space error was.
+      # The indentation below is now corrected to use only spaces.
       - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.16.x' # Use your Elixir version
-          otp-version: '26.x'     # Use your OTP version
+          elixir-version: '1.18.4'
+          otp-version: '27.3'
 
+      # --- CACHING IMPROVEMENT ---
       - name: Cache Elixir dependencies
-	uses: actions/cache@v4
-	with:
-	  path: deps      	  
-   	  key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-      	  restore-keys: |
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
             ${{ runner.os }}-mix-
 
       - name: Cache Node.js dependencies
         uses: actions/cache@v4
-	with:
-	  path: assets/node_modules
-	  key: ${{ runner.os }}-npm-${{ hashFiles('**/assets/package-lock.json') }}
-	  restore-keys: |
+        with:
+          path: assets/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/assets/package-lock.json') }}
+          restore-keys: |
             ${{ runner.os }}-npm-
-	
-      - name: Install dependencies
+
+      - name: Install Elixir dependencies
         run: mix deps.get --only prod
 
       - name: Compile assets

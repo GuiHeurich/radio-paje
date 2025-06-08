@@ -1,0 +1,85 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main # Trigger on push to the main branch
+
+jobs:
+  build:
+    name: Build Elixir Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # This step is likely where the tab/space error was.
+      # The indentation below is now corrected to use only spaces.
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18.4'
+          otp-version: '27.3'
+
+      # --- CACHING IMPROVEMENT ---
+      - name: Cache Elixir dependencies
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: assets/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/assets/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install Elixir dependencies
+        run: mix deps.get --only prod
+
+      - name: Compile assets
+        run: |
+          npm install --prefix ./assets
+          mix esbuild.install --if-missing
+          mix assets.deploy
+
+      - name: Build release
+        env:
+          MIX_ENV: prod
+        run: mix release
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: radio-backend-release
+          path: _build/prod/rel/radio_backend/releases/
+
+  deploy:
+    name: Deploy to EC2
+    needs: build # This job depends on the 'build' job finishing successfully
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: radio-backend-release
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Unpack the release
+            tar -xzf *.tar.gz -C /var/www/radio_backend/
+
+            # Run database migrations
+            /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
+
+            # Restart the application service
+            sudo systemctl restart radio_backend

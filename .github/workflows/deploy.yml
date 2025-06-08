@@ -49,12 +49,19 @@ jobs:
           mix assets.deploy
           mix release
 
+      # --- THIS IS THE CORRECTED STEP ---
       - name: Create release tarball
         run: |
-          cd _build/prod/rel/radio_backend
-          RELEASE_VERSION=$(ls releases | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          # Navigate into the releases directory where the versioned folder is
+          cd _build/prod/rel/radio_backend/releases
+          
+          # Find the version number (e.g., "0.1.0")
+          RELEASE_VERSION=$(ls | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
           echo "Found release version: ${RELEASE_VERSION}"
-          tar -czf "radio_backend-${RELEASE_VERSION}.tar.gz" "${RELEASE_VERSION}"
+
+          # Create the tarball, archiving only the versioned directory.
+          # The output file is placed one level up.
+          tar -czf "../radio_backend-${RELEASE_VERSION}.tar.gz" "${RELEASE_VERSION}"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
@@ -84,6 +91,7 @@ jobs:
           source: "*.tar.gz"
           target: "/tmp"
 
+      # --- THIS SCRIPT NOW WORKS WITH THE CORRECTED TARBALL ---
       - name: Deploy and Restart on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -92,8 +100,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             sudo mkdir -p /var/www/radio_backend
-            sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/w/radio_backend
+            sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/www/radio_backend
+            
+            # This command will now work correctly
             sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/ --strip-components=1
+            
             rm /tmp/*.tar.gz
             
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env

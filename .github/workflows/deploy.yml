@@ -87,32 +87,33 @@ jobs:
           source: "*.tar.gz"
           target: "/tmp"
 
-      - name: Deploy and Restart on EC2
+      # --- THIS IS THE NEW DIAGNOSTIC STEP ---
+      - name: Unpack and Verify on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Create a clean directory for the new release
+            # Clean out the old release to ensure a fresh state
             sudo rm -rf /var/www/radio_backend/*
             sudo mkdir -p /var/www/radio_backend
             sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/www/radio_backend
-            
-            # Unpack the complete release into the target directory
-            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
-            
-            rm /tmp/*.tar.gz
-            
-            # Pass secrets via a temporary environment file for the migration
-            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env
-            echo "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}" >> /tmp/prod.env
-            echo "PHX_HOST=${{ secrets.PHX_HOST }}" >> /tmp/prod.env
-            
-            # Source the env file and run the migration. This path will now exist.
-            set -a; source /tmp/prod.env; set +a
-            /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
-            rm /tmp/prod.env
 
-            # Restart the application service
-            sudo systemctl restart radio_backend
+            # Unpack the release
+            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
+
+            # --- THIS IS THE MOST IMPORTANT PART ---
+            # Let's see what is actually inside the directory after unpacking
+            echo "--- Verifying unpacked contents of /var/www/radio_backend/ ---"
+            ls -lA /var/www/radio_backend/
+            
+            # Let's also check if the 'bin' directory exists and what's inside it
+            echo "--- Verifying contents of /var/www/radio_backend/bin/ ---"
+            # This will error if the directory doesn't exist, which is useful info
+            ls -lA /var/w/radio_backend/bin/ || echo "--> The bin directory was NOT found."
+            
+            # ----------------------------------------
+
+            # The rest of the script is disabled for this test.
+            echo "--- Debugging complete. Please post the full output of this step. ---"

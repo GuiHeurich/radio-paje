@@ -49,20 +49,16 @@ jobs:
           mix assets.deploy
           mix release
 
-      # --- THIS IS THE CORRECTED STEP ---
-      - name: Create release tarball
+      # --- THIS IS THE FINAL, CORRECTED TARBALL CREATION ---
+      - name: Create clean release tarball
         run: |
-          # Navigate into the releases directory where the versioned folder is
-          cd _build/prod/rel/radio_backend/releases
+          # Navigate into the root of the release structure
+          cd _build/prod/rel/radio_backend
           
-          # Find the version number (e.g., "0.1.0")
-          RELEASE_VERSION=$(ls | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
-          echo "Found release version: ${RELEASE_VERSION}"
-
-          # Create the tarball, archiving only the versioned directory.
-          # The output file is placed one level up.
-          tar -czf "../radio_backend-${RELEASE_VERSION}.tar.gz" "${RELEASE_VERSION}"
-
+          # This command creates a clean archive containing ONLY the 'releases'
+          # directory and the other necessary top-level files.
+          tar -czf "radio_backend-release.tar.gz" releases lib erts-*
+          
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:

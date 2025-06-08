@@ -3,12 +3,12 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - main # Trigger on push to the main branch
+      - main
 
 jobs:
   build:
     name: Build Elixir Release
-    runs-on: ubuntu-latest
+    runs-on: codebuild-radio-paje-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

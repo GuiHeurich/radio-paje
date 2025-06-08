@@ -50,14 +50,16 @@ jobs:
           mix assets.deploy
           mix release
       - name: Create release tarball
-        # The 'mix release' command creates the release, but doesn't package it.
-        # We need to manually create the .tar.gz file to upload.
         run: |
-          # Navigate into the release directory
+          # Navigate into the main release directory
           cd _build/prod/rel/radio_backend
-          # Get the release version from the RELEASES file
-          RELEASE_VERSION=$(cat releases/RELEASES | tail -n 1 | awk '{print $2}')
-          # Create the tarball
+
+          # Find the version number by looking at the directory name inside releases/
+          # This is more robust than parsing a file.
+          RELEASE_VERSION=$(ls releases | head -n 1)
+          echo "Found release version: ${RELEASE_VERSION}"
+
+          # Create the tarball, named with the version
           tar -czf "radio_backend-${RELEASE_VERSION}.tar.gz" -C releases/ .
       - name: Upload release artifact
         uses: actions/upload-artifact@v4

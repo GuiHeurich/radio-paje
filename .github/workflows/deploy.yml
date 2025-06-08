@@ -91,28 +91,34 @@ jobs:
           source: "*.tar.gz"
           target: "/tmp"
 
-      # --- THIS SCRIPT NOW WORKS WITH THE CORRECTED TARBALL ---
-      - name: Deploy and Restart on EC2
+      # --- THIS IS THE NEW DIAGNOSTIC STEP ---
+      - name: Unpack and Verify on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Setup the directory
             sudo mkdir -p /var/www/radio_backend
             sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/www/radio_backend
-            
-            # This command will now work correctly
-            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/ --strip-components=1
-            
-            rm /tmp/*.tar.gz
-            
-            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env
-            echo "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}" >> /tmp/prod.env
-            echo "PHX_HOST=${{ secrets.PHX_HOST }}" >> /tmp/prod.env
-            
-            set -a; source /tmp/prod.env; set +a
-            /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
-            rm /tmp/prod.env
 
-            sudo systemctl restart radio_backend
+            # Unpack the release
+            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
+
+            # --- THIS IS THE MOST IMPORTANT PART ---
+            # Let's see what is actually inside the directory after unpacking
+            echo "--- Verifying unpacked contents of /var/www/radio_backend/ ---"
+            ls -lA /var/www/radio_backend/
+            
+            # If there's a subdirectory, let's see inside it too
+            # This command will list the first subdirectory it finds, if any
+            SUBDIR=$(ls /var/www/radio_backend/ | head -n 1)
+            if [ -n "$SUBDIR" ]; then
+              echo "--- Verifying contents of subdirectory: $SUBDIR ---"
+              ls -lA /var/www/radio_backend/"$SUBDIR"
+            fi
+            # ----------------------------------------
+
+            # The rest of the script is disabled for this test.
+            echo "--- Debugging complete. Please post the output of the 'ls' commands. ---"

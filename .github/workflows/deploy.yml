@@ -51,16 +51,10 @@ jobs:
           mix release
       - name: Create release tarball
         run: |
-          # Navigate into the main release directory
-          cd _build/prod/rel/radio_backend
-
-          # Find the version number by looking at the directory name inside releases/
-          # This is more robust than parsing a file.
-          RELEASE_VERSION=$(ls releases | head -n 1)
+          cd _build/prod/rel/radio_backend/releases
+          RELEASE_VERSION=$(ls | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
           echo "Found release version: ${RELEASE_VERSION}"
-
-          # Create the tarball, named with the version
-          tar -czf "radio_backend-${RELEASE_VERSION}.tar.gz" -C releases/ .
+          tar -czf "../radio_backend-${RELEASE_VERSION}.tar.gz" "${RELEASE_VERSION}"
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
@@ -107,6 +101,9 @@ jobs:
 
             # Clean up the temporary archive file
             rm /tmp/*.tar.gz
+
+            echo "Listing contents of /var/www/radio_backend/bin/ after unpacking:"
+            ls -l /var/www/radio_backend/bin/
 
             # Run database migrations
             # The release needs the DB URL to boot, even for migrations.

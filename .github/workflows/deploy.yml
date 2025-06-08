@@ -50,15 +50,15 @@ jobs:
           mix release
 
       # --- THIS IS THE FINAL, CORRECTED TARBALL CREATION ---
-      - name: Create clean release tarball
+      - name: Create complete release tarball
         run: |
-          # Navigate into the root of the release structure
+          # Navigate into the root of the generated release structure
           cd _build/prod/rel/radio_backend
           
-          # This command creates a clean archive containing ONLY the 'releases'
-          # directory and the other necessary top-level files.
-          tar -czf "radio_backend-release.tar.gz" releases lib erts-*
-          
+          # This command archives the essential directories (bin, lib, releases)
+          # that make up a complete, runnable release.
+          tar -czf "radio_backend-release.tar.gz" bin lib releases erts-*
+
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
@@ -87,34 +87,32 @@ jobs:
           source: "*.tar.gz"
           target: "/tmp"
 
-      # --- THIS IS THE NEW DIAGNOSTIC STEP ---
-      - name: Unpack and Verify on EC2
+      - name: Deploy and Restart on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Setup the directory
+            # Create a clean directory for the new release
+            sudo rm -rf /var/www/radio_backend/*
             sudo mkdir -p /var/www/radio_backend
             sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/www/radio_backend
-
-            # Unpack the release
-            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
-
-            # --- THIS IS THE MOST IMPORTANT PART ---
-            # Let's see what is actually inside the directory after unpacking
-            echo "--- Verifying unpacked contents of /var/www/radio_backend/ ---"
-            ls -lA /var/www/radio_backend/
             
-            # If there's a subdirectory, let's see inside it too
-            # This command will list the first subdirectory it finds, if any
-            SUBDIR=$(ls /var/www/radio_backend/ | head -n 1)
-            if [ -n "$SUBDIR" ]; then
-              echo "--- Verifying contents of subdirectory: $SUBDIR ---"
-              ls -lA /var/www/radio_backend/"$SUBDIR"
-            fi
-            # ----------------------------------------
+            # Unpack the complete release into the target directory
+            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
+            
+            rm /tmp/*.tar.gz
+            
+            # Pass secrets via a temporary environment file for the migration
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env
+            echo "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}" >> /tmp/prod.env
+            echo "PHX_HOST=${{ secrets.PHX_HOST }}" >> /tmp/prod.env
+            
+            # Source the env file and run the migration. This path will now exist.
+            set -a; source /tmp/prod.env; set +a
+            /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
+            rm /tmp/prod.env
 
-            # The rest of the script is disabled for this test.
-            echo "--- Debugging complete. Please post the output of the 'ls' commands. ---"
+            # Restart the application service
+            sudo systemctl restart radio_backend

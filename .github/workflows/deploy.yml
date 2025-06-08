@@ -66,7 +66,7 @@ jobs:
         with:
           name: radio-backend-release
           # The path to the generated .tar.gz file
-          path: _build/prod/rel/radio_backend/releases/**/*.tar.gz
+          path: releases
 
   deploy:
     name: Deploy to EC2

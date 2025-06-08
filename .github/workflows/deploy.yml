@@ -20,7 +20,6 @@ jobs:
           elixir-version: '1.18.4'
           otp-version: '27.3'
 
-      # Cache dependencies to speed up future builds
       - name: Cache Elixir dependencies
         uses: actions/cache@v4
         with:
@@ -49,17 +48,18 @@ jobs:
           mix esbuild.install --if-missing
           mix assets.deploy
           mix release
+
       - name: Create release tarball
         run: |
-          cd _build/prod/rel/radio_backend/releases
-          RELEASE_VERSION=$(ls | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          cd _build/prod/rel/radio_backend
+          RELEASE_VERSION=$(ls releases | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
           echo "Found release version: ${RELEASE_VERSION}"
-          tar -czf "../radio_backend-${RELEASE_VERSION}.tar.gz" "${RELEASE_VERSION}"
+          tar -czf "radio_backend-${RELEASE_VERSION}.tar.gz" "${RELEASE_VERSION}"
+
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: radio-backend-release
-          # The path to the generated .tar.gz file
           path: _build/prod/rel/radio_backend/*.tar.gz
 
   deploy:
@@ -75,19 +75,33 @@ jobs:
         with:
           name: radio-backend-release
 
-      # --- THIS IS THE NEW, CRUCIAL DEBUGGING STEP ---
-      - name: Inspect downloaded artifact
-        run: |
-          echo "Listing contents of the downloaded tarball:"
-          tar -tvf *.tar.gz
+      - name: Copy release to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "*.tar.gz"
+          target: "/tmp"
 
-      - name: Deploy and Unpack on Server
+      - name: Deploy and Restart on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # For now, we are just copying the file.
-            # We will add the rest of the commands back after we know the structure.
-            echo "File transfer complete. Next step is to fix the unpack command."
+            sudo mkdir -p /var/www/radio_backend
+            sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/w/radio_backend
+            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/ --strip-components=1
+            rm /tmp/*.tar.gz
+            
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env
+            echo "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}" >> /tmp/prod.env
+            echo "PHX_HOST=${{ secrets.PHX_HOST }}" >> /tmp/prod.env
+            
+            set -a; source /tmp/prod.env; set +a
+            /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
+            rm /tmp/prod.env
+
+            sudo systemctl restart radio_backend

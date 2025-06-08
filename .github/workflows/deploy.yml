@@ -49,10 +49,16 @@ jobs:
           mix esbuild.install --if-missing
           mix assets.deploy
           mix release
-      - name: List files in release directory
+      - name: Create release tarball
+        # The 'mix release' command creates the release, but doesn't package it.
+        # We need to manually create the .tar.gz file to upload.
         run: |
-          echo "Listing contents of _build/prod/rel/radio_backend/releases/"
-          ls -lR _build/prod/rel/radio_backend/releases/
+          # Navigate into the release directory
+          cd _build/prod/rel/radio_backend
+          # Get the release version from the RELEASES file
+          RELEASE_VERSION=$(cat releases/RELEASES | tail -n 1 | awk '{print $2}')
+          # Create the tarball
+          tar -czf "radio_backend-${RELEASE_VERSION}.tar.gz" -C releases/ .
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:

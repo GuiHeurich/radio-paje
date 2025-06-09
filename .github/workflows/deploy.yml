@@ -1,3 +1,4 @@
+
 name: Build and Deploy to AWS EC2
 
 on:
@@ -7,58 +8,40 @@ on:
 
 jobs:
   build:
-    name: Build Elixir Release
+    name: Build ARM64 Release via Docker
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Elixir and Erlang
-        uses: erlef/setup-beam@v1
+      # Step 1: Set up QEMU for multi-architecture emulation
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Step 2: Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: Build the ARM64 release inside a Docker container
+      # This step builds the release and exports the final tarball to the local filesystem.
+      - name: Build ARM64 release
+        uses: docker/build-push-action@v5
         with:
-          elixir-version: '1.18.4'
-          otp-version: '27.3'
+          context: .
+          # We are building for linux/arm64 (the architecture of Graviton instances)
+          platforms: linux/arm64
+          # We're telling Docker to output the result as a local tarball
+          # in a directory named 'release-output'
+          outputs:
+            - type=local,dest=release-output
 
-      - name: Cache Elixir dependencies
-        uses: actions/cache@v4
-        with:
-          path: deps
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-
-
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v4
-        with:
-          path: assets/node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/assets/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-
-      - name: Install all dependencies
-        run: |
-          mix deps.get --only prod
-          npm install --prefix ./assets
-
-      - name: Compile assets and build release
-        env:
-          MIX_ENV: prod
-        run: |
-          mix esbuild.install --if-missing
-          mix assets.deploy
-          mix release
-
-      - name: Create complete release tarball
-        run: |
-          cd _build/prod/rel/radio_backend
-          tar -czf "radio_backend-release.tar.gz" bin lib releases erts-*
-
+      # Step 4: Upload the cross-compiled release artifact
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: radio-backend-release
-          path: _build/prod/rel/radio_backend/*.tar.gz
+          path: release-output/radio_backend-release.tar.gz
 
   deploy:
     name: Deploy to EC2
@@ -89,24 +72,19 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Setup the directory
             sudo rm -rf /var/www/radio_backend/*
             sudo mkdir -p /var/www/radio_backend
             sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/www/radio_backend
             
-            # Unpack the complete release
             sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
             rm /tmp/*.tar.gz
             
-            # Create the temporary environment file for migrations
             echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env
             echo "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}" >> /tmp/prod.env
             echo "PHX_HOST=${{ secrets.PHX_HOST }}" >> /tmp/prod.env
             
-            # Source the env file and run the migration with the CORRECT path
             set -a; source /tmp/prod.env; set +a
             /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
             rm /tmp/prod.env
 
-            # Restart the application service
             sudo systemctl restart radio_backend

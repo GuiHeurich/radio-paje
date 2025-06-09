@@ -26,7 +26,8 @@ RUN npm install --prefix ./assets
 COPY . .
 
 # Compile assets and build the release
-RUN mix assets.deploy
+RUN MIX_ENV=prod mix compile
+RUN MIX_ENV=prod mix assets.deploy
 RUN MIX_ENV=prod mix release --arch ${TARGETARCH}
 
 FROM scratch AS packager

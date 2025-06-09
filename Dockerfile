@@ -3,7 +3,20 @@ FROM elixir:1.18.4-otp-27 AS builder
 ARG TARGETARCH
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y build-essential curl git && rm -rf /var/lib/apt/lists/*
+ENV CC=aarch64-linux-gnu-gcc \
+    CXX=aarch64-linux-gnu-g++ \
+    KERL_CONFIGURE_OPTIONS="--host=aarch64-linux-gnu --build=x86_64-pc-linux-gnu"
+
+# Install build dependencies, including the cross-compiler toolchain
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    # Add the cross-compiler for aarch64
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Node.js for asset compilation
 ARG NODE_MAJOR=20
@@ -28,7 +41,7 @@ COPY . .
 # Compile assets and build the release
 RUN MIX_ENV=prod mix compile
 RUN MIX_ENV=prod mix assets.deploy
-RUN MIX_ENV=prod mix phx.gen.release --arch ${TARGETARCH}
+RUN MIX_ENV=prod mix phx.gen.release
 
 FROM scratch AS packager
 

@@ -1,4 +1,4 @@
-FROM elixir:1.16.3-erlang-26.2.2-debian-bookworm-20240124-slim AS builder
+FROM elixir:1.18.4-otp-27 AS builder
 
 ARG TARGETARCH
 

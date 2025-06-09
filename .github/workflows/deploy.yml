@@ -33,8 +33,7 @@ jobs:
           platforms: linux/arm64
           # We're telling Docker to output the result as a local tarball
           # in a directory named 'release-output'
-          outputs:
-            - type=local,dest=release-output
+          outputs: type=local,dest=release-output
 
       # Step 4: Upload the cross-compiled release artifact
       - name: Upload release artifact

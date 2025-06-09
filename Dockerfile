@@ -28,7 +28,7 @@ COPY . .
 # Compile assets and build the release
 RUN MIX_ENV=prod mix compile
 RUN MIX_ENV=prod mix assets.deploy
-RUN MIX_ENV=prod mix release --arch ${TARGETARCH}
+RUN MIX_ENV=prod mix phx.gen.release --arch ${TARGETARCH}
 
 FROM scratch AS packager
 

@@ -1,11 +1,9 @@
-FROM elixir:1.18.4-otp-27 AS builder
+# Stage 1: Build the Elixir release
+FROM elixir:1.16.0-otp-25 AS builder
 
-ARG TARGETARCH
-
-# Install build dependencies
+# Set target architecture for cross-compilation
 ENV CC=aarch64-linux-gnu-gcc \
-    CXX=aarch64-linux-gnu-g++ \
-    KERL_CONFIGURE_OPTIONS="--host=aarch64-linux-gnu --build=x86_64-pc-linux-gnu"
+    CXX=aarch64-linux-gnu-g++
 
 # Install build dependencies, including the cross-compiler toolchain
 RUN apt-get update && \
@@ -38,15 +36,19 @@ RUN npm install --prefix ./assets
 # Copy the rest of the application source code
 COPY . .
 
-# Compile assets and build the release
-RUN MIX_ENV=prod mix compile
-RUN MIX_ENV=prod mix assets.deploy
-RUN MIX_ENV=prod mix phx.gen.release
+# Set the release environment
+ENV MIX_ENV=prod
 
-FROM scratch AS packager
+# Compile assets and build the final release
+RUN mix compile
+RUN mix assets.deploy
+# --- FIX: Use `mix release` to actually build the release ---
+RUN mix release
 
-# Copy the entire release from the builder stage
-COPY --from=builder /app/_build/prod/rel/radio_backend /
+# Stage 2: Package the release
+# We use a simple image here just to hold the files for export.
+# The `docker/build-push-action` will export the contents of this stage.
+FROM debian:stable-slim AS release_holder
 
-# Create the final tarball
-RUN tar -czf "/radio_backend-release.tar.gz" .
+# Copy the built release from the builder stage
+COPY --from=builder /app/_build/prod/rel/radio_backend /release

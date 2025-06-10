@@ -1,4 +1,3 @@
-
 name: Build and Deploy to AWS EC2
 
 on:
@@ -8,39 +7,43 @@ on:
 
 jobs:
   build:
-    name: Build ARM64 Release via Docker
+    name: Build ARM64 Release
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 1: Set up QEMU for multi-architecture emulation
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # Step 2: Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Step 3: Build the ARM64 release inside a Docker container
-      # This step builds the release and exports the final tarball to the local filesystem.
-      - name: Build ARM64 release
+      # --- FIX: Build and export the raw release files ---
+      - name: Build ARM64 release files
         uses: docker/build-push-action@v5
         with:
           context: .
-          # We are building for linux/arm64 (the architecture of Graviton instances)
+          # Target the final stage of our Dockerfile
+          target: release_holder
+          # We are building for linux/arm64
           platforms: linux/arm64
-          # We're telling Docker to output the result as a local tarball
-          # in a directory named 'release-output'
-          outputs: type=local,dest=release-output
+          # Export the contents of the final image stage to a local directory
+          outputs: type=local,dest=./release-output
 
-      # Step 4: Upload the cross-compiled release artifact
+      # --- FIX: Create the tarball from the exported files ---
+      - name: Create release tarball
+        run: |
+          cd ./release-output/release
+          tar -czf ../../radio-backend-release.tar.gz .
+
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: radio-backend-release
-          path: release-output/radio_backend-release.tar.gz
+          # The tarball is now in the root of the workspace
+          path: radio-backend-release.tar.gz
 
   deploy:
     name: Deploy to EC2
@@ -61,7 +64,8 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "*.tar.gz"
+          # --- FIX: Use a specific filename instead of a wildcard ---
+          source: "radio-backend-release.tar.gz"
           target: "/tmp"
 
       - name: Deploy and Restart on EC2
@@ -70,20 +74,31 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # --- FIX: Pass secrets as environment variables for better security ---
+          env:
+            DATABASE_URL: ${{ secrets.DATABASE_URL }}
+            SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
+            PHX_HOST: ${{ secrets.PHX_HOST }}
           script: |
-            sudo rm -rf /var/www/radio_backend/*
-            sudo mkdir -p /var/www/radio_backend
-            sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} /var/www/radio_backend
+            set -e # Exit immediately if a command exits with a non-zero status.
             
-            sudo tar -xzf /tmp/*.tar.gz -C /var/www/radio_backend/
-            rm /tmp/*.tar.gz
+            RELEASE_DIR="/var/www/radio_backend"
+            RELEASE_TAR="/tmp/radio-backend-release.tar.gz"
             
-            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > /tmp/prod.env
-            echo "SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}" >> /tmp/prod.env
-            echo "PHX_HOST=${{ secrets.PHX_HOST }}" >> /tmp/prod.env
+            echo "-----> Preparing deployment directory"
+            sudo rm -rf $RELEASE_DIR/*
+            sudo mkdir -p $RELEASE_DIR
+            sudo chown ${{ secrets.SSH_USERNAME }}:${{ secrets.SSH_USERNAME }} $RELEASE_DIR
             
-            set -a; source /tmp/prod.env; set +a
-            /var/www/radio_backend/bin/radio_backend eval "RadioBackend.Release.migrate"
-            rm /tmp/prod.env
+            echo "-----> Unpacking new release"
+            sudo tar -xzf $RELEASE_TAR -C $RELEASE_DIR
+            sudo rm $RELEASE_TAR
+            
+            echo "-----> Running database migrations"
+            # --- FIX: Add parentheses to the function call ---
+            $RELEASE_DIR/bin/radio_backend eval "RadioBackend.Release.migrate()"
 
+            echo "-----> Restarting application service"
             sudo systemctl restart radio_backend
+            
+            echo "-----> Deployment successful!"

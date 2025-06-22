@@ -70,15 +70,14 @@ jobs:
 
       - name: Deploy and Restart on EC2
         uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # --- FIX: Pass secrets as environment variables for better security ---
-          env:
+        env:
             DATABASE_URL: ${{ secrets.DATABASE_URL }}
             SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
             PHX_HOST: ${{ secrets.PHX_HOST }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}         
           script: |
             set -e # Exit immediately if a command exits with a non-zero status.
             

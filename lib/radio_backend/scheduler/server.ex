@@ -97,7 +97,7 @@ defp use_default_tracks() do
   Repo.delete_all(Track)
   IO.puts("Cleared old tracks.")
 
-  b2_url = "https://f005.backblazeb2.com/file/radio-paje-music/"
+  b2_url = "https://f005.backblazeb2.com/file/radio-paje-music"
 
   tracks_data = [
     %{

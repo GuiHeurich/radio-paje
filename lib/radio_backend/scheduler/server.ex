@@ -64,7 +64,7 @@ defmodule RadioBackend.Scheduler.Server do
 defp play_next_track(state) do
   case state.playlist do
     [] ->
-      IO.puts("Playlist finished. Reloading and shuffling...")
+      use_default_tracks()
       reloaded_playlist = Repo.all(Track) |> Enum.shuffle()
       play_next_track(%__MODULE__{state | playlist: reloaded_playlist})
 
@@ -92,5 +92,45 @@ defp play_next_track(state) do
       }
   end
 end
+
+defp use_default_tracks() do
+  Repo.delete_all(Track)
+  IO.puts("Cleared old tracks.")
+
+  tracks_data = [
+    %{
+      title: "Brazil",
+      artist: "Declan McKenna",
+      duration: 252000, # in milliseconds
+      url: "/music/um.opus"
+    },
+    %{
+      title: "Mas Que Nada",
+      artist: "Sérgio Mendes",
+      duration: 157000,
+      url: "/music/dois.opus"
+    },
+    %{
+      title: "Aquarela do Brasil",
+      artist: "Gal Costa",
+      duration: 199000,
+      url: "/music/tres.opus"
+    },
+    %{
+      title: "The Girl From Ipanema",
+      artist: "Stan Getz & João Gilberto",
+      duration: 315000,
+      url: "/music/quatro.opus"
+    }
+  ]
+
+  Enum.each(tracks_data, fn track_attrs ->
+    %Track{}
+    |> Track.changeset(track_attrs)
+    |> Repo.insert!()
+    end)
+
+    IO.puts "Database seeded with #{length(tracks_data)} tracks!"
+  end
 end
 

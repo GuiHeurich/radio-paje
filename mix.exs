@@ -5,23 +5,24 @@ defmodule RadioBackend.MixProject do
     [
       app: :radio_backend,
       version: "0.1.0",
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
       releases: [
-	{:"0.1.0",
+	radio_backend:
 	 [
 	   applications: [radio_backend: :permanent],
 	   steps: [&copy_assets/1, :assemble]
-	 ]}
+	 ]
       ]
     ]
   end
   
   defp copy_assets(release) do
     File.cp_r("priv/static", Path.join([release.path, "priv"]))
+    release
   end
 
   # Configuration for the OTP application.

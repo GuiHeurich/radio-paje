@@ -14,7 +14,7 @@ defmodule RadioBackend.Scheduler.Server do
   ]
 
   # =================================================================
-  # Public API (No changes here)
+  # Public API
   # =================================================================
 
   def start_link(_opts) do
@@ -26,13 +26,11 @@ defmodule RadioBackend.Scheduler.Server do
   end
 
   # =================================================================
-  # GenServer Callbacks (The internal logic)
+  # GenServer Callbacks
   # =================================================================
 
   @impl true
   def init(:ok) do
-    # 2. Replace the hard-coded list with a database query.
-    # We'll also randomize the playlist order each time the server starts!
     playlist = Repo.all(Track) |> Enum.shuffle()
 
     IO.puts("Loaded #{length(playlist)} tracks from the database.")

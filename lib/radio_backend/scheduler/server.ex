@@ -97,30 +97,32 @@ defp use_default_tracks() do
   Repo.delete_all(Track)
   IO.puts("Cleared old tracks.")
 
+  b2_url = "https://f005.backblazeb2.com/file/radio-paje-music/"
+
   tracks_data = [
     %{
       title: "Brazil",
       artist: "Declan McKenna",
-      duration: 252000, # in milliseconds
-      url: "/music/um.opus"
+      duration: 252000,
+      url: "#{b2_url}/um.opus"
     },
     %{
       title: "Mas Que Nada",
       artist: "Sérgio Mendes",
       duration: 157000,
-      url: "/music/dois.opus"
+      url: "#{b2_url}/dois.opus"
     },
     %{
       title: "Aquarela do Brasil",
       artist: "Gal Costa",
       duration: 199000,
-      url: "/music/tres.opus"
+      url: "#{b2_url}/tres.opus"
     },
     %{
       title: "The Girl From Ipanema",
       artist: "Stan Getz & João Gilberto",
       duration: 315000,
-      url: "/music/quatro.opus"
+      url: "#{b2_url}/quatro.opus"
     }
   ]
 

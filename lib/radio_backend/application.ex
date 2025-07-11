@@ -13,7 +13,7 @@ defmodule RadioBackend.Application do
       {DNSCluster, query: Application.get_env(:radio_backend, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: RadioBackend.PubSub},
       # Start the Finch HTTP client for sending emails
-      {Finch, name: RadioBackend.Finch},
+      # {Finch, name: RadioBackend.Finch},
       # Start a worker by calling: RadioBackend.Worker.start_link(arg)
       # {RadioBackend.Worker, arg},
       # Start to serve requests, typically the last entry
